@@ -1,0 +1,131 @@
+services:
+  # Microservicio de Autenticación y su base de datos
+  auth_db:
+    image: postgres:13
+    container_name: auth_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    volumes:
+      - ./db_scripts/auth.sql:/docker-entrypoint-initdb.d/init.sql
+      - auth_data:/var/lib/postgresql/data # persistencia de datos
+    restart: always
+
+  auth_service:
+    build: ./microservicio_autenticacion
+    container_name: auth_service
+    environment:
+      DATABASE_URL: postgresql://user:password@auth_db:5432/auth_db
+      SECRET_KEY: tu_clave_secreta_jwt_para_produccion # ¡Usar la misma en todos los servicios!
+    ports:
+      - "5000:5000"
+    depends_on:
+      - auth_db
+    restart: always
+
+  # Microservicio de Roles y Permisos y su base de datos
+  roles_db:
+    image: postgres:13
+    container_name: roles_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: roles_db
+    volumes:
+      - ./db_scripts/roles.sql:/docker-entrypoint-initdb.d/init.sql
+      - roles_data:/var/lib/postgresql/data # persistencia de datos
+    restart: always
+
+  roles_service:
+    build: ./microservicio_roles
+    container_name: roles_service
+    environment:
+      DATABASE_URL: postgresql://user:password@roles_db:5432/roles_db
+      SECRET_KEY: tu_clave_secreta_jwt_para_produccion # ¡Usar la misma en todos los servicios!
+    ports:
+      - "5001:5001"
+    depends_on:
+      - roles_db
+    restart: always
+
+  # Microservicio de Gestión de Canchas y su base de datos
+  canchas_db:
+    image: postgres:13
+    container_name: canchas_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: canchas_db
+    volumes:
+      - ./db_scripts/canchas.sql:/docker-entrypoint-initdb.d/init.sql
+      - canchas_data:/var/lib/postgresql/data # persistencia de datos
+    restart: always
+
+  canchas_service:
+    build: ./microservicio_canchas
+    container_name: canchas_service
+    environment:
+      DATABASE_URL: postgresql://user:password@canchas_db:5432/canchas_db
+      SECRET_KEY: tu_clave_secreta_jwt_para_produccion # ¡Usar la misma en todos los servicios!
+    ports:
+      - "5002:5002"
+    depends_on:
+      - canchas_db
+    restart: always
+
+  # Microservicio de Gestión de Reservas y su base de datos
+  reservas_db:
+    image: postgres:13
+    container_name: reservas_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: reservas_db
+    volumes:
+      - ./db_scripts/reservas.sql:/docker-entrypoint-initdb.d/init.sql
+      - reservas_data:/var/lib/postgresql/data # persistencia de datos
+    restart: always
+
+  reservas_service:
+    build: ./microservicio_reservas
+    container_name: reservas_service
+    environment:
+      DATABASE_URL: postgresql://user:password@reservas_db:5432/reservas_db
+      SECRET_KEY: tu_clave_secreta_jwt_para_produccion # ¡Usar la misma en todos los servicios!
+      AUTH_SERVICE_URL: http://auth_service:5000
+      CANCHAS_SERVICE_URL: http://canchas_service:5002
+      ROLES_SERVICE_URL: http://roles_service:5001
+    ports:
+      - "5003:5003"
+    depends_on:
+      - reservas_db
+      - auth_service
+      - canchas_service
+      - roles_service # También depende de roles para la verificación granular de permisos
+    restart: always
+
+  # --- NUEVO: Microservicio de Dashboard Administrativo ---
+  dashboard_service:
+    build: ./microservicio_dashboard
+    container_name: dashboard_service
+    environment:
+      SECRET_KEY: tu_clave_secreta_jwt_para_produccion # ¡Usar la misma en todos los servicios!
+      AUTH_SERVICE_URL: http://auth_service:5000
+      ROLES_SERVICE_URL: http://roles_service:5001
+      CANCHAS_SERVICE_URL: http://canchas_service:5002
+      RESERVAS_SERVICE_URL: http://reservas_service:5003
+    ports:
+      - "5004:5004" # Puerto para el dashboard
+    depends_on:
+      - auth_service
+      - roles_service
+      - canchas_service
+      - reservas_service
+    restart: always
+
+volumes:
+  auth_data:
+  roles_data:
+  canchas_data:
+  reservas_data:
