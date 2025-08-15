@@ -102,10 +102,10 @@ services:
       - reservas_db
       - auth_service
       - canchas_service
-      - roles_service # También depende de roles para la verificación granular de permisos
+      - roles_service
     restart: always
 
-  # --- NUEVO: Microservicio de Dashboard Administrativo ---
+  # Microservicio de Dashboard Administrativo
   dashboard_service:
     build: ./microservicio_dashboard
     container_name: dashboard_service
@@ -116,12 +116,34 @@ services:
       CANCHAS_SERVICE_URL: http://canchas_service:5002
       RESERVAS_SERVICE_URL: http://reservas_service:5003
     ports:
-      - "5004:5004" # Puerto para el dashboard
+      - "5004:5004"
     depends_on:
       - auth_service
       - roles_service
       - canchas_service
       - reservas_service
+    restart: always
+
+  # --- NUEVO: API Gateway ---
+  api_gateway_service:
+    build: ./api_gateway # Construye la imagen desde el Dockerfile en este directorio
+    container_name: api_gateway_service
+    environment:
+      # Las URLs de los servicios internos
+      AUTH_SERVICE_URL: http://auth_service:5000
+      ROLES_SERVICE_URL: http://roles_service:5001
+      CANCHAS_SERVICE_URL: http://canchas_service:5002
+      RESERVAS_SERVICE_URL: http://reservas_service:5003
+      DASHBOARD_SERVICE_URL: http://dashboard_service:5004
+      GATEWAY_PORT: 8000 # Puerto opcional, si no, usa el defecto en config.py
+    ports:
+      - "8000:8000" # Mapea el puerto 8000 del Gateway a tu máquina local
+    depends_on:
+      - auth_service
+      - roles_service
+      - canchas_service
+      - reservas_service
+      - dashboard_service # Depende de todos los servicios a los que enrutará
     restart: always
 
 volumes:
